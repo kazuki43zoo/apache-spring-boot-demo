@@ -74,24 +74,31 @@ public class ApacheSpringBootDemoApplication {
   static class Hello {
 
     @GetMapping
-    String hello() {
-      return "redirect:/hello/foo"; // Redirect to another application path via apache
+    String hello(RedirectAttributes attributes, @RequestParam(required = false) String word) {
+      attributes.addFlashAttribute("text", word);
+      attributes.addAttribute("t", System.currentTimeMillis());
+      return "redirect:/hello/foo";
     }
 
     @GetMapping("{name}")
     @ResponseBody
-    String hello(@PathVariable String name) {
-      return "hello " + name + " !"; // Response resource
+    String hello(@PathVariable String name, @ModelAttribute("text") String text) {
+      return "hello " + name + " with " + text + " !";
     }
 
     @GetMapping("root")
     String root() {
-      return "redirect:/"; // Redirect to root path on apache
+      return "redirect:/";
+    }
+
+    @GetMapping("help")
+    String help() {
+      return "redirect:/help/help.html";
     }
 
     @GetMapping("error")
     String error() {
-      return "redirect:/error/500.html"; // Redirect to resource path managed by apache
+      return "redirect:/error/500.html";
     }
 
   }
@@ -115,6 +122,7 @@ apache/httpd.conf(/usr/local/apache2/conf/httpd.conf)
 ProxyRequests Off
 ProxyPass /hello ajp://ap:8009/app/hello
 ProxyPassReverse / /app/
+ProxyPassReverseCookiePath /app /
 ```
 
 ## Build Spring Boot application
@@ -214,20 +222,29 @@ ap_1            | 2018-09-17 11:02:27.008  INFO 1 --- [           main] c.e.a.Ap
 This access is confirmed basic settings for apache http server.
 
 ```
-$ curl -D - -s -L http://localhost:10080/
+$ curl -v -s -b -L http://localhost:10080/
 ```
 
-```http
-HTTP/1.1 200 OK
-Date: Mon, 17 Sep 2018 11:04:48 GMT
-Server: Apache/2.4.34 (Unix)
-Last-Modified: Mon, 11 Jun 2007 18:53:14 GMT
-ETag: "2d-432a5e4a73a80"
-Accept-Ranges: bytes
-Content-Length: 45
-Content-Type: text/html
-
+```
+*   Trying ::1...
+* TCP_NODELAY set
+* Connected to localhost (::1) port 10080 (#0)
+> GET / HTTP/1.1
+> Host: localhost:10080
+> User-Agent: curl/7.54.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Date: Mon, 17 Sep 2018 15:02:33 GMT
+< Server: Apache/2.4.34 (Unix)
+< Last-Modified: Mon, 11 Jun 2007 18:53:14 GMT
+< ETag: "2d-432a5e4a73a80"
+< Accept-Ranges: bytes
+< Content-Length: 45
+< Content-Type: text/html
+< 
 <html><body><h1>It works!</h1></body></html>
+* Connection #0 to host localhost left intact
 ```
 
 Traffic sequences are:
@@ -239,24 +256,46 @@ Traffic sequences are:
 This access is confirmed settings for proxy.
 
 ```
-$ curl -D - -s -L http://localhost:10080/hello
+$ curl -v -b -s -L http://localhost:10080/hello?word=123
 ```
 
 ```http
-HTTP/1.1 302 302
-Date: Mon, 17 Sep 2018 11:29:25 GMT
-Server: Apache/2.4.34 (Unix)
-Location: http://localhost:10080/hello/foo
-Content-Language: en
-Content-Length: 0
-
-HTTP/1.1 200 200
-Date: Mon, 17 Sep 2018 11:29:25 GMT
-Server: Apache/2.4.34 (Unix)
-Content-Type: text/plain;charset=UTF-8
-Content-Length: 11
-
-hello foo !
+*   Trying ::1...
+* TCP_NODELAY set
+* Connected to localhost (::1) port 10080 (#0)
+> GET /hello?word=123 HTTP/1.1
+> Host: localhost:10080
+> User-Agent: curl/7.54.0
+> Accept: */*
+> 
+< HTTP/1.1 302 302
+< Date: Mon, 17 Sep 2018 15:04:46 GMT
+< Server: Apache/2.4.34 (Unix)
+* Added cookie JSESSIONID="C7C63F83C18B97F3A8EB308208DD80D1" for domain localhost, path /, expire 0
+< Set-Cookie: JSESSIONID=C7C63F83C18B97F3A8EB308208DD80D1; Path=/; HttpOnly
+< Location: http://localhost:10080/hello/foo?t=1537196686967
+< Content-Language: en
+< Content-Length: 0
+< 
+* Connection #0 to host localhost left intact
+* Issue another request to this URL: 'http://localhost:10080/hello/foo?t=1537196686967'
+* Found bundle for host localhost: 0x7ffb76424bd0 [can pipeline]
+* Re-using existing connection! (#0) with host localhost
+* Connected to localhost (::1) port 10080 (#0)
+> GET /hello/foo?t=1537196686967 HTTP/1.1
+> Host: localhost:10080
+> User-Agent: curl/7.54.0
+> Accept: */*
+> Cookie: JSESSIONID=C7C63F83C18B97F3A8EB308208DD80D1
+> 
+< HTTP/1.1 200 200
+< Date: Mon, 17 Sep 2018 15:04:46 GMT
+< Server: Apache/2.4.34 (Unix)
+< Content-Type: text/plain;charset=UTF-8
+< Content-Length: 20
+< 
+* Connection #0 to host localhost left intact
+hello foo with 123 !
 ```
 
 Traffic sequences are:
@@ -270,26 +309,44 @@ Traffic sequences are:
 This access is confirmed settings for reverse proxy.
 
 ```
-$ curl -D - -s -L http://localhost:10080/hello/error
+$ curl -v -b -s -L http://localhost:10080/hello/error
 ```
 
 ```http
-HTTP/1.1 302 302
-Date: Mon, 17 Sep 2018 11:38:35 GMT
-Server: Apache/2.4.34 (Unix)
-Location: http://localhost:10080/error/500.html
-Content-Language: en
-Content-Length: 0
-
-HTTP/1.1 200 OK
-Date: Mon, 17 Sep 2018 11:38:35 GMT
-Server: Apache/2.4.34 (Unix)
-Last-Modified: Mon, 17 Sep 2018 10:49:59 GMT
-ETag: "5a-5760eef3e23c0"
-Accept-Ranges: bytes
-Content-Length: 90
-Content-Type: text/html
-
+*   Trying ::1...
+* TCP_NODELAY set
+* Connected to localhost (::1) port 10080 (#0)
+> GET /hello/error HTTP/1.1
+> Host: localhost:10080
+> User-Agent: curl/7.54.0
+> Accept: */*
+> 
+< HTTP/1.1 302 302
+< Date: Mon, 17 Sep 2018 15:05:43 GMT
+< Server: Apache/2.4.34 (Unix)
+< Location: http://localhost:10080/error/500.html
+< Content-Language: en
+< Content-Length: 0
+< 
+* Connection #0 to host localhost left intact
+* Issue another request to this URL: 'http://localhost:10080/error/500.html'
+* Found bundle for host localhost: 0x7fb2ce424bd0 [can pipeline]
+* Re-using existing connection! (#0) with host localhost
+* Connected to localhost (::1) port 10080 (#0)
+> GET /error/500.html HTTP/1.1
+> Host: localhost:10080
+> User-Agent: curl/7.54.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Date: Mon, 17 Sep 2018 15:05:43 GMT
+< Server: Apache/2.4.34 (Unix)
+< Last-Modified: Mon, 17 Sep 2018 10:49:59 GMT
+< ETag: "5a-5760eef3e23c0"
+< Accept-Ranges: bytes
+< Content-Length: 90
+< Content-Type: text/html
+< 
 <html>
 <head>
     <title>server error</title>
@@ -297,6 +354,7 @@ Content-Type: text/html
 <body>
 Server Error.
 </body>
+* Connection #0 to host localhost left intact
 </html>
 ```
 
