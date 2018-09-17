@@ -7,10 +7,8 @@ import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactor
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @SpringBootApplication
 public class ApacheSpringBootDemoApplication {
@@ -36,14 +34,16 @@ public class ApacheSpringBootDemoApplication {
   static class Hello {
 
     @GetMapping
-    String hello() {
+    String hello(RedirectAttributes attributes, @RequestParam(required = false) String word) {
+      attributes.addFlashAttribute("text", word);
+      attributes.addAttribute("t", System.currentTimeMillis());
       return "redirect:/hello/foo";
     }
 
     @GetMapping("{name}")
     @ResponseBody
-    String hello(@PathVariable String name) {
-      return "hello " + name + " !";
+    String hello(@PathVariable String name, @ModelAttribute("text") String text) {
+      return "hello " + name + " with " + text + " !";
     }
 
     @GetMapping("root")
