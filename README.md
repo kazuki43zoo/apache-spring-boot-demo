@@ -259,7 +259,7 @@ This access is confirmed settings for proxy.
 $ curl -v -b -s -L http://localhost:10080/hello?word=123
 ```
 
-```http
+```
 *   Trying ::1...
 * TCP_NODELAY set
 * Connected to localhost (::1) port 10080 (#0)
@@ -312,7 +312,7 @@ This access is confirmed settings for reverse proxy.
 $ curl -v -b -s -L http://localhost:10080/hello/error
 ```
 
-```http
+```
 *   Trying ::1...
 * TCP_NODELAY set
 * Connected to localhost (::1) port 10080 (#0)
