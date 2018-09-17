@@ -1,0 +1,10 @@
+ap:
+  build: .
+  ports:
+    - "18080:8080"
+apache-httpd:
+  build: ./apache
+  ports:
+    - "10080:80"
+  links:
+    - ap
